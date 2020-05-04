@@ -32,6 +32,6 @@ class CrossViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(instance)
         for mission in serializer.data['missions']:
             mission['status'] = instance.missions.get(
-                id=mission['id'],
+                serial_number=mission['serial_number'],
             ).get_status(user_id=request.user.id)
         return Response(serializer.data)

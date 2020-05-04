@@ -24,6 +24,36 @@ class Cross(models.Model):
     ends_at = models.DateTimeField()
     users = models.ManyToManyField('auth.User', related_name='crosses')
 
+    @property
+    @transaction.atomic
+    def user_table(self):
+        result = []
+        for user in self.users.all():
+            mission_stati = []
+            penalty = 0
+            missions_finished = 0
+            for mission in self.missions.all():
+                status = mission.get_status(user_id=user.id)
+                mission_stati.append({
+                    'serial_number': mission.serial_number,
+                    'finished': status['finished'],
+                })
+                penalty += status['penalty'] * status['finished']
+                missions_finished += status['finished']
+            result.append({
+                'name': user.username,
+                'missions': mission_stati,
+                'missions_finished': missions_finished,
+                'penalty': penalty,
+            })
+        result.sort(key=lambda user: (
+            -user['missions_finished'],
+            user['penalty'],
+        ))
+        for rank, user in enumerate(result, 1):
+            user['rank'] = rank
+        return result
+
 
 class Mission(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

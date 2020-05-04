@@ -1,22 +1,13 @@
-from django.contrib.auth.models import User
 from rest_framework import serializers
 
 from . import models
-
-
-class ShortUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'username',
-        ]
 
 
 class ShortMissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Mission
         fields = [
-            'id',
+            'serial_number',
             'name',
             'description',
             'lattitude',
@@ -25,7 +16,7 @@ class ShortMissionSerializer(serializers.ModelSerializer):
 
 
 class CrossSerializer(serializers.ModelSerializer):
-    users = ShortUserSerializer(many=True, required=False)
+    users = serializers.ListField(source='user_table')
     missions = ShortMissionSerializer(many=True, required=False)
 
     class Meta:
