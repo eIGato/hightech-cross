@@ -15,7 +15,6 @@ class CrossViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = models.Cross.objects.prefetch_related(
         'users',
         'missions',
-        'missions__progress_logs',
     )
     serializer_class = CrossSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -31,4 +30,8 @@ class CrossViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             instance = self.get_object()
         serializer = self.get_serializer(instance)
+        for mission in serializer.data['missions']:
+            mission['status'] = instance.missions.get(
+                id=mission['id'],
+            ).get_status(user_id=request.user.id)
         return Response(serializer.data)

@@ -94,9 +94,11 @@ class Mission(models.Model):
                     'text': prompt.text if prompt_logs.filter(
                         details__serial_number=prompt.serial_number,
                     ).exists() else None,
-                } for prompt in self.prompts
+                } for prompt in self.prompts.all()
             ],
-            'penalty': logs.aggregate(models.Sum('penalty'))['penalty__sum'],
+            'penalty': logs.aggregate(
+                models.Sum('penalty'),
+            )['penalty__sum'] or 0,
         }
 
     @transaction.atomic
