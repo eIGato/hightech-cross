@@ -3,7 +3,7 @@ from rest_framework import serializers
 from . import models
 
 
-class ShortMissionSerializer(serializers.ModelSerializer):
+class MissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Mission
         fields = [
@@ -14,17 +14,23 @@ class ShortMissionSerializer(serializers.ModelSerializer):
             'longitude',
         ]
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation.update(instance.get_status(
+            user_id=self.context['request'].user.id,
+        ))
+        return representation
+
 
 class CrossSerializer(serializers.ModelSerializer):
     users = serializers.ListField(source='user_table')
-    missions = ShortMissionSerializer(many=True, required=False)
 
     class Meta:
         model = models.Cross
         fields = [
+            'id',
             'name',
             'begins_at',
             'ends_at',
             'users',
-            'missions',
         ]
