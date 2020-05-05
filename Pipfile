@@ -6,6 +6,7 @@ verify_ssl = true
 [packages]
 Django = "==3.0.5"
 djangorestframework = "==3.11.0"
+drf-nested-routers = "==0.91"
 psycopg2-binary = "==2.8.5"
 
 [dev-packages]
