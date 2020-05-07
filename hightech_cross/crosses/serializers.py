@@ -3,7 +3,21 @@ from rest_framework import serializers
 from . import models
 
 
+class AnswerSerializer(serializers.ModelSerializer):
+    text = serializers.CharField(source='details.text')
+
+    class Meta:
+        model = models.ProgressLog
+        fields = [
+            'created_at',
+            'is_right',
+            'text',
+        ]
+
+
 class MissionSerializer(serializers.ModelSerializer):
+    answers = AnswerSerializer(many=True, source='progress_logs')
+
     class Meta:
         model = models.Mission
         fields = [
@@ -12,6 +26,7 @@ class MissionSerializer(serializers.ModelSerializer):
             'description',
             'lattitude',
             'longitude',
+            'answers',
         ]
 
     def to_representation(self, instance):

@@ -30,7 +30,7 @@ class Cross(models.Model):
         result = []
         for user in self.users.all():
             mission_stati = []
-            penalty = 0
+            penalty = timedelta(0)
             missions_finished = 0
             for mission in self.missions.all():
                 status = mission.get_status(user_id=user.id)
@@ -112,12 +112,6 @@ class Mission(models.Model):
             'finished': logs.filter(
                 event=event_choices['RIGHT_ANSWER'],
             ).exists(),
-            'answers': list(logs.filter(
-                event__in=[
-                    event_choices['WRONG_ANSWER'],
-                    event_choices['RIGHT_ANSWER'],
-                ],
-            ).values_list('details__text', flat=True)),
             'prompts': [
                 {
                     'serial_number': prompt.serial_number,
@@ -186,8 +180,8 @@ class ProgressLog(models.Model):
     )
     user = models.ForeignKey(
         'auth.User',
-        related_name='progress_logs',
         on_delete=models.CASCADE,
+        related_name='progress_logs',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     event = models.CharField(max_length=15, choices=event_choices.items())
@@ -201,3 +195,7 @@ class ProgressLog(models.Model):
         ordering = [
             'created_at',
         ]
+
+    @property
+    def is_right(self):
+        return self.event != event_choices['WRONG_ANSWER']
