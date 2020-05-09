@@ -20,8 +20,15 @@ answer_router = routers.NestedSimpleRouter(
     lookup='mission',
 )
 answer_router.register(r'answers', views.AnswerViewSet)
+prompt_router = routers.NestedSimpleRouter(
+    mission_router,
+    r'missions',
+    lookup='mission',
+)
+prompt_router.register(r'prompts', views.PromptViewSet)
 urlpatterns = [
     path('', include(cross_router.urls)),
     path('', include(mission_router.urls)),
     path('', include(answer_router.urls)),
+    path('', include(prompt_router.urls)),
 ]
