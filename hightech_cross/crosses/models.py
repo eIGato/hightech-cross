@@ -91,7 +91,9 @@ class Mission(models.Model):
             return self.prompts.get(serial_number=serial_number)
         if logs.filter(event=event_choices['RIGHT_ANSWER']).exists():
             return None
-        prompt = self.prompts.get_object_or_404(serial_number=serial_number)
+        prompt = self.prompts.filter(serial_number=serial_number).first()
+        if prompt is None:
+            return None
         log = ProgressLog(
             mission_id=self.id,
             user_id=user_id,
@@ -105,21 +107,10 @@ class Mission(models.Model):
     @transaction.atomic
     def get_status(self, user_id):
         logs = self.get_logs(user_id)
-        prompt_logs = logs.filter(
-            event=event_choices['GET_PROMPT'],
-        )
         return {
             'finished': logs.filter(
                 event=event_choices['RIGHT_ANSWER'],
             ).exists(),
-            'prompts': [
-                {
-                    'serial_number': prompt.serial_number,
-                    'text': prompt.text if prompt_logs.filter(
-                        details__serial_number=prompt.serial_number,
-                    ).exists() else None,
-                } for prompt in self.prompts.all()
-            ],
             'penalty': logs.aggregate(
                 models.Sum('penalty'),
             )['penalty__sum'] or 0,
