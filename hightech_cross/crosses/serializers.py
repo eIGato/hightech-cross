@@ -6,8 +6,8 @@ from . import models
 class AnswerListSerializer(serializers.ListSerializer):
     def to_representation(self, data):
         data = data.filter(event__in=(
-            models.event_choices['RIGHT_ANSWER'],
-            models.event_choices['WRONG_ANSWER'],
+            models.ProgressEvent.RIGHT_ANSWER,
+            models.ProgressEvent.WRONG_ANSWER,
         ))
         return super().to_representation(data)
 
@@ -32,12 +32,16 @@ class PromptSerializer(serializers.ModelSerializer):
             'serial_number',
             'text',
         ]
+        read_only_fields = [
+            'serial_number',
+            'text',
+        ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if not models.ProgressLog.objects.filter(
             user_id=self.context['request'].user.id,
-            event=models.event_choices['GET_PROMPT'],
+            event=models.ProgressEvent.GET_PROMPT,
             details__serial_number=instance.serial_number,
         ).exists():
             representation['text'] = None
