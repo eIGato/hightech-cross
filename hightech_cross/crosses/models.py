@@ -10,11 +10,12 @@ from django.utils.timezone import now
 
 PROMPT_PENALTY = timedelta(minutes=15)
 WRONG_ANSWER_PENALTY = timedelta(minutes=30)
-event_choices = {
-    'GET_PROMPT': 'GET_PROMPT',
-    'RIGHT_ANSWER': 'RIGHT_ANSWER',
-    'WRONG_ANSWER': 'WRONG_ANSWER',
-}
+
+
+class ProgressEvent(models.TextChoices):
+    GET_PROMPT = 'GET_PROMPT'
+    RIGHT_ANSWER = 'RIGHT_ANSWER'
+    WRONG_ANSWER = 'WRONG_ANSWER'
 
 
 class Cross(models.Model):
@@ -83,21 +84,29 @@ class Mission(models.Model):
 
     @transaction.atomic
     def get_prompt(self, user_id, serial_number):
+        try:
+            serial_number = int(serial_number)
+        except Exception:
+            return None
+        if not self.cross.begins_at < now() < self.cross.ends_at:
+            return None
         logs = self.get_logs(user_id)
-        if logs.filter(
-            event=event_choices['GET_PROMPT'],
-            details__serial_number=serial_number,
-        ).exists():
-            return self.prompts.get(serial_number=serial_number)
-        if logs.filter(event=event_choices['RIGHT_ANSWER']).exists():
-            return None
         prompt = self.prompts.filter(serial_number=serial_number).first()
-        if prompt is None:
-            return None
+        if (
+            prompt is None
+            or logs.filter(
+                event=ProgressEvent.GET_PROMPT,
+                details__serial_number=serial_number,
+            ).exists()
+            or logs.filter(
+                event=ProgressEvent.RIGHT_ANSWER,
+            ).exists()
+        ):
+            return prompt
         log = ProgressLog(
             mission_id=self.id,
             user_id=user_id,
-            event=event_choices['GET_PROMPT'],
+            event=ProgressEvent.GET_PROMPT,
             details={'serial_number': serial_number},
             penalty=PROMPT_PENALTY,
         )
@@ -109,7 +118,7 @@ class Mission(models.Model):
         logs = self.get_logs(user_id)
         return {
             'finished': logs.filter(
-                event=event_choices['RIGHT_ANSWER'],
+                event=ProgressEvent.RIGHT_ANSWER,
             ).exists(),
             'penalty': logs.aggregate(
                 models.Sum('penalty'),
@@ -118,27 +127,29 @@ class Mission(models.Model):
 
     @transaction.atomic
     def give_answer(self, user_id, text):
+        if not self.cross.begins_at < now() < self.cross.ends_at:
+            return False
         logs = self.get_logs(user_id)
-        if logs.filter(event=event_choices['RIGHT_ANSWER']).exists():
+        if logs.filter(event=ProgressEvent.RIGHT_ANSWER).exists():
             return True
         if text == self.answer:
             log = ProgressLog(
                 mission_id=self.id,
                 user_id=user_id,
-                event=event_choices['RIGHT_ANSWER'],
+                event=ProgressEvent.RIGHT_ANSWER,
                 details={'text': text},
                 penalty=now() - self.cross.begins_at,
             )
             log.save()
             return True
         if not logs.filter(
-            event=event_choices['WRONG_ANSWER'],
+            event=ProgressEvent.WRONG_ANSWER,
             details__text=text,
         ).exists():
             log = ProgressLog(
                 mission_id=self.id,
                 user_id=user_id,
-                event=event_choices['WRONG_ANSWER'],
+                event=ProgressEvent.WRONG_ANSWER,
                 details={'text': text},
                 penalty=WRONG_ANSWER_PENALTY,
             )
@@ -175,7 +186,7 @@ class ProgressLog(models.Model):
         related_name='progress_logs',
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    event = models.CharField(max_length=15, choices=event_choices.items())
+    event = models.CharField(max_length=15, choices=ProgressEvent.choices)
     details = JSONField()
     penalty = models.DurationField()
 
@@ -189,4 +200,4 @@ class ProgressLog(models.Model):
 
     @property
     def is_right(self):
-        return self.event != event_choices['WRONG_ANSWER']
+        return self.event != ProgressEvent.WRONG_ANSWER

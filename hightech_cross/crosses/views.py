@@ -90,8 +90,8 @@ class AnswerViewSet(
     viewsets.GenericViewSet,
 ):
     queryset = models.ProgressLog.objects.filter(event__in=(
-        models.event_choices['RIGHT_ANSWER'],
-        models.event_choices['WRONG_ANSWER'],
+        models.ProgressEvent.RIGHT_ANSWER,
+        models.ProgressEvent.WRONG_ANSWER,
     ))
     serializer_class = AnswerSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -114,7 +114,7 @@ class AnswerViewSet(
 
 class PromptViewSet(
     CurrentCrossMixin,
-    viewsets.mixins.CreateModelMixin,
+    viewsets.mixins.UpdateModelMixin,
     viewsets.mixins.ListModelMixin,
     viewsets.mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
@@ -123,7 +123,7 @@ class PromptViewSet(
     serializer_class = PromptSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def create(self, request, cross_pk, mission_pk, *args, **kwargs):
+    def update(self, request, pk, cross_pk, mission_pk, *args, **kwargs):
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
@@ -132,15 +132,12 @@ class PromptViewSet(
         )
         prompt = mission.get_prompt(
             user_id=request.user.id,
-            serial_number=request.data['serial_number'],
+            serial_number=pk,
         )
         if prompt is None:
             raise Http404
         serializer = self.get_serializer(prompt)
-        return Response(
-            serializer.data,
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(serializer.data)
 
     def retrieve(self, request, pk, cross_pk, mission_pk, *args, **kwargs):
         if cross_pk == 'current':
@@ -150,8 +147,6 @@ class PromptViewSet(
             serial_number=mission_pk,
         )
         instance = mission.prompts.filter(serial_number=pk).first()
-        if instance is None:
-            raise Http404
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
