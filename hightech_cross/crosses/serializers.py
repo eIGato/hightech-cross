@@ -1,6 +1,15 @@
+from django.utils.duration import duration_string
 from rest_framework import serializers
 
 from . import models
+
+
+class CoordinateField(serializers.Field):
+    def to_representation(self, value):
+        degrees = int(value)
+        minutes = (value % 1) * 60
+        seconds = (minutes % 1) * 60
+        return f'{degrees}\xb0{int(minutes)}\'{int(seconds)}"'
 
 
 class AnswerListSerializer(serializers.ListSerializer):
@@ -29,11 +38,11 @@ class PromptSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Prompt
         fields = [
-            'serial_number',
+            'sn',
             'text',
         ]
         read_only_fields = [
-            'serial_number',
+            'sn',
             'text',
         ]
 
@@ -42,7 +51,7 @@ class PromptSerializer(serializers.ModelSerializer):
         if not models.ProgressLog.objects.filter(
             user_id=self.context['request'].user.id,
             event=models.ProgressEvent.GET_PROMPT,
-            details__serial_number=instance.serial_number,
+            details__sn=instance.sn,
         ).exists():
             representation['text'] = None
         return representation
@@ -51,29 +60,50 @@ class PromptSerializer(serializers.ModelSerializer):
 class MissionSerializer(serializers.ModelSerializer):
     answers = AnswerSerializer(many=True, source='progress_logs')
     prompts = PromptSerializer(many=True)
+    lat = CoordinateField()
+    lon = CoordinateField()
+    finished = serializers.SerializerMethodField('get_finished')
+    penalty = serializers.SerializerMethodField('get_penalty')
 
     class Meta:
         model = models.Mission
         fields = [
-            'serial_number',
+            'sn',
             'name',
             'description',
-            'lattitude',
-            'longitude',
+            'lat',
+            'lon',
             'answers',
             'prompts',
+            'finished',
+            'penalty',
         ]
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation.update(instance.get_status(
+    def get_finished(self, instance):
+        return instance.get_finished(
+            user_id=self.context['request'].user.id,
+        )
+
+    def get_penalty(self, instance):
+        return duration_string(instance.get_penalty(
             user_id=self.context['request'].user.id,
         ))
-        return representation
+
+
+class LeaderMissionSerializer(serializers.Serializer):
+    sn = serializers.IntegerField()
+    finished = serializers.BooleanField()
+
+
+class LeaderSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    missions = LeaderMissionSerializer(many=True)
+    missions_finished = serializers.IntegerField()
+    penalty = serializers.DurationField()
 
 
 class CrossSerializer(serializers.ModelSerializer):
-    users = serializers.ListField(source='user_table')
+    leaderboard = LeaderSerializer(many=True)
 
     class Meta:
         model = models.Cross
@@ -82,5 +112,5 @@ class CrossSerializer(serializers.ModelSerializer):
             'name',
             'begins_at',
             'ends_at',
-            'users',
+            'leaderboard',
         ]

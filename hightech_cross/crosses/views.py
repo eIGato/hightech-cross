@@ -16,10 +16,10 @@ from .serializers import (
 )
 
 
-def get_mission(cross_id, serial_number):
+def get_mission(cross_id, sn):
     mission = models.Mission.objects.filter(
         cross_id=cross_id,
-        serial_number=serial_number,
+        sn=sn,
     ).first()
     if mission is None:
         raise Http404
@@ -70,7 +70,7 @@ class MissionViewSet(CurrentCrossMixin, viewsets.ReadOnlyModelViewSet):
             cross_pk = self.get_current_cross(request.user.id).id
         instance = get_mission(
             cross_id=cross_pk,
-            serial_number=pk,
+            sn=pk,
         )
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -101,7 +101,7 @@ class AnswerViewSet(
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
             cross_id=cross_pk,
-            serial_number=mission_pk,
+            sn=mission_pk,
         )
         return Response(
             mission.give_answer(
@@ -128,11 +128,11 @@ class PromptViewSet(
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
             cross_id=cross_pk,
-            serial_number=mission_pk,
+            sn=mission_pk,
         )
         prompt = mission.get_prompt(
             user_id=request.user.id,
-            serial_number=pk,
+            sn=pk,
         )
         if prompt is None:
             raise Http404
@@ -144,9 +144,9 @@ class PromptViewSet(
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
             cross_id=cross_pk,
-            serial_number=mission_pk,
+            sn=mission_pk,
         )
-        instance = mission.prompts.filter(serial_number=pk).first()
+        instance = mission.prompts.filter(sn=pk).first()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 

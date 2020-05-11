@@ -27,25 +27,26 @@ class Cross(models.Model):
 
     @property
     @transaction.atomic
-    def user_table(self):
+    def leaderboard(self):
         result = []
         for user in self.users.all():
             mission_stati = []
-            penalty = timedelta(0)
+            total_penalty = timedelta(0)
             missions_finished = 0
             for mission in self.missions.all():
-                status = mission.get_status(user_id=user.id)
+                finished = mission.get_finished(user_id=user.id)
+                penalty = mission.get_penalty(user_id=user.id)
                 mission_stati.append({
-                    'serial_number': mission.serial_number,
-                    'finished': status['finished'],
+                    'sn': mission.sn,
+                    'finished': finished,
                 })
-                penalty += status['penalty'] * status['finished']
-                missions_finished += status['finished']
+                total_penalty += penalty * finished
+                missions_finished += finished
             result.append({
                 'name': user.username,
                 'missions': mission_stati,
                 'missions_finished': missions_finished,
-                'penalty': penalty,
+                'penalty': total_penalty,
             })
         result.sort(key=lambda user: (
             -user['missions_finished'],
@@ -60,43 +61,43 @@ class Mission(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=63)
     description = models.CharField(max_length=300)
-    lattitude = models.DecimalField(max_digits=8, decimal_places=3)
-    longitude = models.DecimalField(max_digits=8, decimal_places=3)
+    lat = models.DecimalField(max_digits=8, decimal_places=5)
+    lon = models.DecimalField(max_digits=8, decimal_places=5)
     answer = models.CharField(max_length=63)
     cross = models.ForeignKey(
         Cross,
         on_delete=models.CASCADE,
         related_name='missions',
     )
-    serial_number = models.SmallIntegerField()
+    sn = models.SmallIntegerField()
 
     class Meta:
         unique_together = [
-            ('cross', 'serial_number'),
+            ('cross', 'sn'),
         ]
         ordering = [
             'cross',
-            'serial_number',
+            'sn',
         ]
 
     def get_logs(self, user_id):
         return self.progress_logs.filter(user_id=user_id)
 
     @transaction.atomic
-    def get_prompt(self, user_id, serial_number):
+    def get_prompt(self, user_id, sn):
         try:
-            serial_number = int(serial_number)
+            sn = int(sn)
         except Exception:
             return None
         if not self.cross.begins_at < now() < self.cross.ends_at:
             return None
         logs = self.get_logs(user_id)
-        prompt = self.prompts.filter(serial_number=serial_number).first()
+        prompt = self.prompts.filter(sn=sn).first()
         if (
             prompt is None
             or logs.filter(
                 event=ProgressEvent.GET_PROMPT,
-                details__serial_number=serial_number,
+                details__sn=sn,
             ).exists()
             or logs.filter(
                 event=ProgressEvent.RIGHT_ANSWER,
@@ -107,30 +108,27 @@ class Mission(models.Model):
             mission_id=self.id,
             user_id=user_id,
             event=ProgressEvent.GET_PROMPT,
-            details={'serial_number': serial_number},
+            details={'sn': sn},
             penalty=PROMPT_PENALTY,
         )
         log.save()
         return prompt
 
-    @transaction.atomic
-    def get_status(self, user_id):
-        logs = self.get_logs(user_id)
-        return {
-            'finished': logs.filter(
-                event=ProgressEvent.RIGHT_ANSWER,
-            ).exists(),
-            'penalty': logs.aggregate(
-                models.Sum('penalty'),
-            )['penalty__sum'] or 0,
-        }
+    def get_finished(self, user_id):
+        return self.get_logs(user_id).filter(
+            event=ProgressEvent.RIGHT_ANSWER,
+        ).exists()
+
+    def get_penalty(self, user_id):
+        return self.get_logs(user_id).aggregate(
+            models.Sum('penalty'),
+        )['penalty__sum'] or 0
 
     @transaction.atomic
     def give_answer(self, user_id, text):
         if not self.cross.begins_at < now() < self.cross.ends_at:
             return False
-        logs = self.get_logs(user_id)
-        if logs.filter(event=ProgressEvent.RIGHT_ANSWER).exists():
+        if self.get_finished(user_id):
             return True
         if text == self.answer:
             log = ProgressLog(
@@ -142,6 +140,7 @@ class Mission(models.Model):
             )
             log.save()
             return True
+        logs = self.get_logs(user_id)
         if not logs.filter(
             event=ProgressEvent.WRONG_ANSWER,
             details__text=text,
@@ -165,11 +164,11 @@ class Prompt(models.Model):
         on_delete=models.CASCADE,
         related_name='prompts',
     )
-    serial_number = models.SmallIntegerField()
+    sn = models.SmallIntegerField()
 
     class Meta:
         unique_together = [
-            ('mission', 'serial_number'),
+            ('mission', 'sn'),
         ]
 
 
