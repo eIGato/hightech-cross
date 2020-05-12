@@ -1,0 +1,520 @@
+openapi: 3.0.2
+info:
+  title: ''
+  version: ''
+paths:
+  /api/crosses/:
+    get:
+      operationId: listCross
+      description: List all available crosses.
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      readOnly: true
+                    name:
+                      type: string
+                      maxLength: 63
+                    begins_at:
+                      type: string
+                      format: date-time
+                    ends_at:
+                      type: string
+                      format: date-time
+                    leaderboard:
+                      type: array
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          missions:
+                            type: array
+                            items:
+                              properties:
+                                sn:
+                                  type: integer
+                                finished:
+                                  type: boolean
+                              required:
+                              - sn
+                              - finished
+                          missions_finished:
+                            type: integer
+                          penalty:
+                            type: string
+                        required:
+                        - name
+                        - missions
+                        - missions_finished
+                        - penalty
+                  required:
+                  - name
+                  - begins_at
+                  - ends_at
+                  - leaderboard
+          description: ''
+  /api/crosses/{id}/:
+    get:
+      operationId: retrieveCross
+      description: Get single cross by ID or alias.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: |
+          A UUID string identifying this cross.
+          Word "current" is an alias for last of already began crosses.
+          Use `GET /api/crosses/current/` to get the leaderboard.
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    readOnly: true
+                  name:
+                    type: string
+                    maxLength: 63
+                  begins_at:
+                    type: string
+                    format: date-time
+                  ends_at:
+                    type: string
+                    format: date-time
+                  leaderboard:
+                    type: array
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        missions:
+                          type: array
+                          items:
+                            properties:
+                              sn:
+                                type: integer
+                              finished:
+                                type: boolean
+                            required:
+                            - sn
+                            - finished
+                        missions_finished:
+                          type: integer
+                        penalty:
+                          type: string
+                      required:
+                      - name
+                      - missions
+                      - missions_finished
+                      - penalty
+                required:
+                - name
+                - begins_at
+                - ends_at
+                - leaderboard
+          description: ''
+  /api/crosses/{cross_pk}/missions/:
+    get:
+      operationId: listMissions
+      description: |
+        Get mission list for given cross.
+        Use `GET /api/crosses/current/missions/` to get info for main screen.
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: UUID or "current".
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    sn:
+                      type: integer
+                      maximum: 3
+                      minimum: 1
+                    name:
+                      type: string
+                      maxLength: 63
+                    description:
+                      type: string
+                      maxLength: 300
+                    lat:
+                      type: string
+                    lon:
+                      type: string
+                    answers:
+                      type: array
+                      items:
+                        properties:
+                          created_at:
+                            type: string
+                            format: date-time
+                            readOnly: true
+                          is_right:
+                            type: string
+                            readOnly: true
+                          text:
+                            type: string
+                        required:
+                        - text
+                    prompts:
+                      type: array
+                      items:
+                        properties:
+                          sn:
+                            type: integer
+                            readOnly: true
+                          text:
+                            type: string
+                            readOnly: true
+                    finished:
+                      type: string
+                      readOnly: true
+                    penalty:
+                      type: string
+                      readOnly: true
+                  required:
+                  - sn
+                  - name
+                  - description
+                  - lat
+                  - lon
+                  - answers
+                  - prompts
+          description: ''
+  /api/crosses/{cross_pk}/missions/{id}/:
+    get:
+      operationId: retrieveMission
+      description: Get single mission.
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: A UUID string identifying this mission.
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  sn:
+                    type: integer
+                    maximum: 32767
+                    minimum: -32768
+                  name:
+                    type: string
+                    maxLength: 63
+                  description:
+                    type: string
+                    maxLength: 300
+                  lat:
+                    type: string
+                  lon:
+                    type: string
+                  answers:
+                    type: array
+                    items:
+                      properties:
+                        created_at:
+                          type: string
+                          format: date-time
+                          readOnly: true
+                        is_right:
+                          type: string
+                          readOnly: true
+                        text:
+                          type: string
+                      required:
+                      - text
+                  prompts:
+                    type: array
+                    items:
+                      properties:
+                        sn:
+                          type: integer
+                          readOnly: true
+                        text:
+                          type: string
+                          readOnly: true
+                  finished:
+                    type: string
+                    readOnly: true
+                  penalty:
+                    type: string
+                    readOnly: true
+                required:
+                - sn
+                - name
+                - description
+                - lat
+                - lon
+                - answers
+                - prompts
+          description: ''
+  /api/crosses/{cross_pk}/missions/{mission_pk}/answers/:
+    get:
+      operationId: listAnswers
+      description: ''
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    created_at:
+                      type: string
+                      format: date-time
+                      readOnly: true
+                    is_right:
+                      type: string
+                      readOnly: true
+                    text:
+                      type: string
+                  required:
+                  - text
+          description: ''
+    post:
+      operationId: createAnswer
+      description: Send an answer for mission.
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema: &id001
+              properties:
+                text:
+                  type: string
+              required:
+              - text
+          application/x-www-form-urlencoded:
+            schema: *id001
+          multipart/form-data:
+            schema: *id001
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  created_at:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                  is_right:
+                    type: string
+                    readOnly: true
+                  text:
+                    type: string
+                required:
+                - text
+          description: ''
+  /api/crosses/{cross_pk}/missions/{mission_pk}/prompts/:
+    get:
+      operationId: listPrompts
+      description: ''
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    sn:
+                      type: integer
+                      readOnly: true
+                    text:
+                      type: string
+                      readOnly: true
+          description: ''
+  /api/crosses/{cross_pk}/missions/{mission_pk}/prompts/{id}/:
+    get:
+      operationId: retrievePrompt
+      description: ''
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: A UUID string identifying this prompt.
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  sn:
+                    type: integer
+                    readOnly: true
+                  text:
+                    type: string
+                    readOnly: true
+          description: ''
+    put:
+      operationId: updatePrompt
+      description: Mark prompt as read and retrieve its text.
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: A UUID string identifying this prompt.
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema: &id002
+              properties: {}
+          application/x-www-form-urlencoded:
+            schema: *id002
+          multipart/form-data:
+            schema: *id002
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  sn:
+                    type: integer
+                    readOnly: true
+                  text:
+                    type: string
+                    readOnly: true
+          description: ''
+    patch:
+      operationId: partial_updatePrompt
+      description: Mark prompt as read and retrieve its text.
+      parameters:
+      - name: cross_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: mission_pk
+        in: path
+        required: true
+        description: ''
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: A UUID string identifying this prompt.
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema: &id003
+              properties: {}
+          application/x-www-form-urlencoded:
+            schema: *id003
+          multipart/form-data:
+            schema: *id003
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  sn:
+                    type: integer
+                    readOnly: true
+                  text:
+                    type: string
+                    readOnly: true
+          description: ''
