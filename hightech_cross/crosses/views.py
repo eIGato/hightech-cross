@@ -1,3 +1,6 @@
+"""Views and viewsets for `crosses` app."""
+import uuid
+
 from django.http import Http404
 from django.utils.timezone import now
 from rest_framework import (
@@ -5,6 +8,7 @@ from rest_framework import (
     status,
     viewsets,
 )
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from . import models
@@ -16,7 +20,8 @@ from .serializers import (
 )
 
 
-def get_mission(cross_id, sn):
+def get_mission(cross_id: uuid.UUID, sn: int) -> models.Mission:
+    """Shortcut to get mission by given args."""
     mission = models.Mission.objects.filter(
         cross_id=cross_id,
         sn=sn,
@@ -27,7 +32,8 @@ def get_mission(cross_id, sn):
 
 
 class CurrentCrossMixin:
-    def get_current_cross(self, user_id):
+    def get_current_cross(self, user_id: uuid.UUID) -> models.Cross:
+        """Get last of crosses ever started for user."""
         cross = models.Cross.objects.filter(
             users=user_id,
             begins_at__lte=now(),
@@ -49,7 +55,13 @@ class CrossViewSet(CurrentCrossMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CrossSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def retrieve(self, request, pk, *args, **kwargs):
+    def retrieve(
+        self,
+        request: Request,
+        pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if pk == 'current':
             instance = self.get_current_cross(request.user.id)
         else:
@@ -59,13 +71,22 @@ class CrossViewSet(CurrentCrossMixin, viewsets.ReadOnlyModelViewSet):
 
 
 class MissionViewSet(CurrentCrossMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = models.Mission.objects.prefetch_related(
+    queryset = models.Mission.objects.filter(
+        cross__begins_at__lt=now(),
+    ).prefetch_related(
         'progress_logs',
     )
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def retrieve(self, request, pk, cross_pk, *args, **kwargs):
+    def retrieve(
+        self,
+        request: Request,
+        pk: str,
+        cross_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         instance = get_mission(
@@ -75,7 +96,13 @@ class MissionViewSet(CurrentCrossMixin, viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
-    def list(self, request, cross_pk, *args, **kwargs):
+    def list(
+        self,
+        request: Request,
+        cross_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         missions = self.get_queryset().filter(cross_id=cross_pk)
@@ -96,7 +123,14 @@ class AnswerViewSet(
     serializer_class = AnswerSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def create(self, request, cross_pk, mission_pk, *args, **kwargs):
+    def create(
+        self,
+        request: Request,
+        cross_pk: str,
+        mission_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
@@ -123,7 +157,15 @@ class PromptViewSet(
     serializer_class = PromptSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def update(self, request, pk, cross_pk, mission_pk, *args, **kwargs):
+    def update(
+        self,
+        request: Request,
+        pk: str,
+        cross_pk: str,
+        mission_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
@@ -139,7 +181,15 @@ class PromptViewSet(
         serializer = self.get_serializer(prompt)
         return Response(serializer.data)
 
-    def retrieve(self, request, pk, cross_pk, mission_pk, *args, **kwargs):
+    def retrieve(
+        self,
+        request: Request,
+        pk: str,
+        cross_pk: str,
+        mission_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         mission = get_mission(
@@ -150,7 +200,14 @@ class PromptViewSet(
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
-    def list(self, request, cross_pk, mission_pk, *args, **kwargs):
+    def list(
+        self,
+        request: Request,
+        cross_pk: str,
+        mission_pk: str,
+        *args,
+        **kwargs,
+    ) -> Response:
         if cross_pk == 'current':
             cross_pk = self.get_current_cross(request.user.id).id
         return super().list(request, cross_pk, mission_pk, *args, **kwargs)
