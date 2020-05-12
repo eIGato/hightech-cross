@@ -1,3 +1,7 @@
+"""Serializers and helpers for `crosses` app views."""
+from decimal import Decimal
+
+from django.db.models import QuerySet
 from django.utils.duration import duration_string
 from rest_framework import serializers
 
@@ -5,7 +9,10 @@ from . import models
 
 
 class CoordinateField(serializers.Field):
-    def to_representation(self, value):
+    """Field for latitude or longitude."""
+
+    def to_representation(self, value: Decimal) -> str:
+        """Format `value` like `15°16'17"`."""
         degrees = int(value)
         minutes = (value % 1) * 60
         seconds = (minutes % 1) * 60
@@ -13,7 +20,9 @@ class CoordinateField(serializers.Field):
 
 
 class AnswerListSerializer(serializers.ListSerializer):
-    def to_representation(self, data):
+    """Filter only answers from logs."""
+
+    def to_representation(self, data: QuerySet) -> list:
         data = data.filter(event__in=(
             models.ProgressEvent.RIGHT_ANSWER,
             models.ProgressEvent.WRONG_ANSWER,
@@ -46,7 +55,7 @@ class PromptSerializer(serializers.ModelSerializer):
             'text',
         ]
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: models.Prompt) -> dict:
         representation = super().to_representation(instance)
         if not models.ProgressLog.objects.filter(
             user_id=self.context['request'].user.id,
@@ -79,12 +88,12 @@ class MissionSerializer(serializers.ModelSerializer):
             'penalty',
         ]
 
-    def get_finished(self, instance):
+    def get_finished(self, instance: models.Mission) -> bool:
         return instance.get_finished(
             user_id=self.context['request'].user.id,
         )
 
-    def get_penalty(self, instance):
+    def get_penalty(self, instance: models.Mission) -> str:
         return duration_string(instance.get_penalty(
             user_id=self.context['request'].user.id,
         ))

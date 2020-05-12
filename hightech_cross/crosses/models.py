@@ -1,6 +1,18 @@
-import uuid
-from datetime import timedelta
+"""DB models for `crosses` app.
 
+Attributes:
+    PROMPT_PENALTY (timedelta): Time penalty for using prompts.
+    WRONG_ANSWER_PENALTY (timedelta): Time penalty for sending wrong answers.
+"""
+import typing as t
+import uuid
+from datetime import (
+    datetime,
+    timedelta,
+)
+from decimal import Decimal
+
+from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.db import (
     models,
@@ -13,21 +25,38 @@ WRONG_ANSWER_PENALTY = timedelta(minutes=30)
 
 
 class ProgressEvent(models.TextChoices):
+    """Progress log event choice namespace."""
+
     GET_PROMPT = 'GET_PROMPT'
     RIGHT_ANSWER = 'RIGHT_ANSWER'
     WRONG_ANSWER = 'WRONG_ANSWER'
 
 
 class Cross(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=63)
-    begins_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
-    users = models.ManyToManyField('auth.User', related_name='crosses')
+    """Tournament for several teams.
+
+    Attributes:
+        id (uuid.UUID): Instance PK.
+        name (str): Cross title.
+        begins_at (datetime): Cross start time.
+        ends_at (datetime): Cross end time.
+        users (models.Manager): Teams participating.
+    """
+
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    name: str = models.CharField(max_length=63)
+    begins_at: datetime = models.DateTimeField()
+    ends_at: datetime = models.DateTimeField()
+    users: models.Manager = models.ManyToManyField('auth.User', related_name='crosses')
 
     @property
     @transaction.atomic
-    def leaderboard(self):
+    def leaderboard(self) -> t.List[t.Dict[str, t.Any]]:
+        """Ranked team list with stats."""
         result = []
         for user in self.users.all():
             mission_stati = []
@@ -58,18 +87,35 @@ class Cross(models.Model):
 
 
 class Mission(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=63)
-    description = models.CharField(max_length=300)
-    lat = models.DecimalField(max_digits=8, decimal_places=5)
-    lon = models.DecimalField(max_digits=8, decimal_places=5)
-    answer = models.CharField(max_length=63)
-    cross = models.ForeignKey(
+    """Part of a cross.
+
+    Attributes:
+        id (uuid.UUID): Instance PK.
+        name (str): Mission title.
+        description (str): Mission question.
+        lat (Decimal): Mission location latitude.
+        lon (Decimal): Mission location longitude.
+        answer (str): The only right answer for question.
+        cross (Cross): Cross the mission is part of.
+        sn (int): Mission serial number inside cross.
+    """
+
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    name: str = models.CharField(max_length=63)
+    description: str = models.CharField(max_length=300)
+    lat: Decimal = models.DecimalField(max_digits=8, decimal_places=5)
+    lon: Decimal = models.DecimalField(max_digits=8, decimal_places=5)
+    answer: str = models.CharField(max_length=63)
+    cross: Cross = models.ForeignKey(
         Cross,
         on_delete=models.CASCADE,
         related_name='missions',
     )
-    sn = models.SmallIntegerField()
+    sn: int = models.SmallIntegerField()
 
     class Meta:
         unique_together = [
@@ -80,14 +126,23 @@ class Mission(models.Model):
             'sn',
         ]
 
-    def get_logs(self, user_id):
+    def get_logs(self, user_id: uuid.UUID) -> models.QuerySet:
+        """Get mission logs for given user."""
         return self.progress_logs.filter(user_id=user_id)
 
     @transaction.atomic
-    def get_prompt(self, user_id, sn):
+    def get_prompt(
+        self,
+        user_id: uuid.UUID,
+        sn: int,
+    ) -> t.Optional['Prompt']:
+        """Take mission prompt for user by s/n.
+
+        Return prompt and log this event.
+        """
         try:
             sn = int(sn)
-        except Exception:
+        except ValueError:
             return None
         if not self.cross.begins_at < now() < self.cross.ends_at:
             return None
@@ -114,18 +169,25 @@ class Mission(models.Model):
         log.save()
         return prompt
 
-    def get_finished(self, user_id):
+    def get_finished(self, user_id: uuid.UUID) -> bool:
+        """Learn if mission is finished."""
         return self.get_logs(user_id).filter(
             event=ProgressEvent.RIGHT_ANSWER,
         ).exists()
 
-    def get_penalty(self, user_id):
+    def get_penalty(self, user_id: uuid.UUID) -> timedelta:
+        """Get user penalty for mission."""
         return self.get_logs(user_id).aggregate(
             models.Sum('penalty'),
-        )['penalty__sum'] or 0
+        )['penalty__sum'] or timedelta(0)
 
     @transaction.atomic
-    def give_answer(self, user_id, text):
+    def give_answer(
+        self,
+        user_id: uuid.UUID,
+        text: str,
+    ) -> bool:
+        """Try to guess right answer by user."""
         if not self.cross.begins_at < now() < self.cross.ends_at:
             return False
         if self.get_finished(user_id):
@@ -157,14 +219,27 @@ class Mission(models.Model):
 
 
 class Prompt(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    text = models.CharField(max_length=300)
-    mission = models.ForeignKey(
+    """Prompt for mission answer.
+
+    Attributes:
+        id (uuid.UUID): Instance PK.
+        text (str): Prompt text.
+        mission (Mission): Mission the prompt is for.
+        sn (int): Prompt serial number inside mission.
+    """
+
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    text: str = models.CharField(max_length=300)
+    mission: Mission = models.ForeignKey(
         Mission,
         on_delete=models.CASCADE,
         related_name='prompts',
     )
-    sn = models.SmallIntegerField()
+    sn: int = models.SmallIntegerField()
 
     class Meta:
         unique_together = [
@@ -173,21 +248,37 @@ class Prompt(models.Model):
 
 
 class ProgressLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    mission = models.ForeignKey(
+    """Mission progress log for user/team.
+
+    Attributes:
+        id (uuid.UUID): Instance PK.
+        mission (Mission): Mission the prompt is for.
+        user (auth.User): Progressing team.
+        created_at (datetime): Log date.
+        event (str): Log event type.
+        details (t.Dict[str, t.Any]): Event-specific details.
+        penalty (timedelta): Time penalty.
+    """
+
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    mission: Mission = models.ForeignKey(
         Mission,
         on_delete=models.CASCADE,
         related_name='progress_logs',
     )
-    user = models.ForeignKey(
+    user: User = models.ForeignKey(
         'auth.User',
         on_delete=models.CASCADE,
         related_name='progress_logs',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    event = models.CharField(max_length=15, choices=ProgressEvent.choices)
-    details = JSONField()
-    penalty = models.DurationField()
+    created_at: datetime = models.DateTimeField(auto_now_add=True)
+    event: str = models.CharField(max_length=15, choices=ProgressEvent.choices)
+    details: t.Dict[str, t.Any] = JSONField()
+    penalty: timedelta = models.DurationField()
 
     class Meta:
         indexes = [
@@ -198,5 +289,5 @@ class ProgressLog(models.Model):
         ]
 
     @property
-    def is_right(self):
+    def is_right(self) -> bool:
         return self.event != ProgressEvent.WRONG_ANSWER
