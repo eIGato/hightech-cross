@@ -1,0 +1,27 @@
+version: "2.4"
+
+services:
+    hightech_cross:
+        build: .
+        command: ./manage.py runserver 0.0.0.0:80
+        # depends_on: []
+        # environment: {}
+        ports:
+            - 8080:80
+        volumes:
+            - ./hightech_cross:/app
+
+    postgres:
+        image: postgres:11
+        environment:
+            POSTGRES_PASSWORD: postgres
+        shm_size: 1gb
+
+    api_doc:
+        image: redocly/redoc
+        environment:
+            SPEC_URL: openapi.yml
+        ports:
+            - 8081:80
+        volumes:
+            - ./hightech_cross/openapi.yml:/usr/share/nginx/html/openapi.yml

@@ -1,0 +1,17 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[packages]
+Django = "==3.0.5"
+djangorestframework = "==3.11.0"
+drf-nested-routers = "==0.91"
+psycopg2-binary = "==2.8.5"
+PyYAML = "==5.3.1"
+uritemplate = "==3.0.1"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
